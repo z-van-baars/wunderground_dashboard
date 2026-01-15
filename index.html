@@ -586,7 +586,32 @@
                             titleColor: '#fff',
                             bodyColor: '#e0e0e0',
                             borderColor: '#444',
-                            borderWidth: 1
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+
+                                    const value = context.parsed.y;
+
+                                    // Add appropriate units based on data type
+                                    if (label.includes('Temperature') || label.includes('Feels Like')) {
+                                        label += value + '°F';
+                                    } else if (label.includes('%') || label.includes('Cloud Cover') || label.includes('Humidity')) {
+                                        label += value + '%';
+                                    } else if (label.includes('Precip Amount')) {
+                                        label += value + '"';
+                                    } else if (label.includes('Wind')) {
+                                        label += value + ' mph';
+                                    } else {
+                                        label += value;
+                                    }
+
+                                    return label;
+                                }
+                            }
                         }
                     },
                     scales: {
