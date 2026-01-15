@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>36 Hour Weather - Bellingham</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #e0e0e0;
+            padding: 12px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .meta {
+            font-size: 13px;
+            color: #888;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            background: #1e2732;
+            border: 1px solid #2d3748;
+            color: #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #2d3748;
+            border-color: #4a5568;
+        }
+
+        .btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+
+        .graph-container {
+            background: #1a1f2e;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .weather-icons {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px 0 60px;
+            gap: 2px;
+            overflow-x: auto;
+        }
+
+        .weather-icon {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+        }
+
+        .weather-icon-emoji {
+            font-size: 20px;
+            opacity: 0.9;
+            display: block;
+        }
+
+        .weather-icon-time {
+            font-size: 10px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        canvas {
+            max-width: 100%;
+        }
+
+        #weatherChart {
+            height: 550px !important;
+        }
+
+        @media (max-width: 640px) {
+            .weather-icons {
+                padding: 0 35px 0 45px;
+            }
+            .weather-icon-emoji {
+                font-size: 16px;
+            }
+            .weather-icon-time {
+                font-size: 9px;
+            }
+            #weatherChart {
+                height: 450px !important;
+            }
+        }
+
+        .series-toggles {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #1e2732;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .toggle:hover {
+            background: #2d3748;
+        }
+
+        .toggle.active {
+            border-color: currentColor;
+        }
+
+        .toggle-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .error {
+            background: #dc2626;
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .stat {
+            background: #1e2732;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .precip-bar {
+            width: 100%;
+            height: 6px;
+            background: #2d3748;
+            border-radius: 3px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .precip-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .stat-secondary {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+
+        @media (max-width: 640px) {
+            .graph-container {
+                padding: 12px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>36 Hour Weather Forecast</h1>
+            <div class="meta">Bellingham, WA</div>
+        </header>
+
+        <div class="controls">
+            <button class="btn active" data-hours="12">12 Hours</button>
+            <button class="btn" data-hours="24">24 Hours</button>
+            <button class="btn" data-hours="36">36 Hours</button>
+            <button class="btn" id="refreshBtn">Refresh</button>
+        </div>
+
+        <div class="series-toggles" id="seriesToggles"></div>
+
+        <div class="stats" id="stats"></div>
+
+        <div id="errorContainer"></div>
+
+        <div class="graph-container">
+            <div class="weather-icons" id="weatherIcons"></div>
+            <canvas id="weatherChart"></canvas>
+        </div>
+
+        <div class="meta" style="text-align: center; margin-top: 12px;">
+            Last updated: <span id="lastUpdate">--</span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_URL = 'https://api.weather.com/v3/wx/forecast/hourly/15day';
+        const API_KEY = 'e1f10a1e78da46f5b10a1e78da96f525';
+        const LOCATION = { lat: 48.796, lon: -122.502 };
+
+        // Series configuration
+        const SERIES_CONFIG = {
+            temperature: {
+                label: 'Temperature',
+                color: '#ef4444',
+                yAxisID: 'y',
+                type: 'line',
+                enabled: true
+            },
+            feelsLike: {
+                label: 'Feels Like',
+                color: '#f97316',
+                yAxisID: 'y',
+                type: 'line',
+                enabled: true,
+                borderDash: [5, 5]
+            },
+            precipChance: {
+                label: 'Precip %',
+                color: '#3b82f6',
+                yAxisID: 'y1',
+                type: 'line',
+                enabled: true
+            },
+            qpf: {
+                label: 'Precip Amount (in)',
+                color: '#0ea5e9',
+                yAxisID: 'y2',
+                type: 'bar',
+                enabled: true
+            },
+            cloudCover: {
+                label: 'Cloud Cover',
+                color: '#64748b',
+                yAxisID: 'y1',
+                type: 'line',
+                enabled: true,
+                fill: true,
+                borderDash: [2, 2]
+            },
+            windSpeed: {
+                label: 'Wind (mph)',
+                color: '#10b981',
+                yAxisID: 'y',
+                type: 'line',
+                enabled: false
+            },
+            humidity: {
+                label: 'Humidity %',
+                color: '#8b5cf6',
+                yAxisID: 'y1',
+                type: 'line',
+                enabled: false
+            }
+        };
+
+        // State
+        let weatherData = null;
+        let chart = null;
+        let currentHours = 12;
+
+        // Icon code to emoji mapping (Weather.com icon codes)
+        function getWeatherEmoji(iconCode, isNight) {
+            const code = parseInt(iconCode);
+
+            // Clear - day vs night
+            if ([32, 34, 36].includes(code)) return isNight ? '🌙' : '☀️';
+            if ([33, 31].includes(code)) return '🌙'; // Explicit night codes
+
+            // Partly Cloudy - day vs night
+            if ([30, 44].includes(code)) return isNight ? '☁️' : '⛅'; // Night partly cloudy
+            if ([29, 27].includes(code)) return isNight ? '☁️' : '🌤️'; // Mostly cloudy
+
+            // Cloudy (same day/night)
+            if ([26, 28].includes(code)) return '☁️';
+
+            // Rain
+            if ([11, 12, 39, 40, 45].includes(code)) return '🌧️';
+
+            // Heavy Rain / Thunderstorms
+            if ([3, 4, 37, 38, 47].includes(code)) return '⛈️';
+
+            // Snow
+            if ([5, 6, 7, 8, 13, 14, 15, 16, 41, 42, 43, 46].includes(code)) return '🌨️';
+
+            // Fog/Haze
+            if ([20, 21, 22].includes(code)) return '🌫️';
+
+            // Windy
+            if ([23, 24].includes(code)) return '💨';
+
+            // Default
+            return isNight ? '🌙' : '☁️';
+        }
+
+        // Fetch weather data
+        async function fetchWeather() {
+            const url = `${API_URL}?apiKey=${API_KEY}&geocode=${LOCATION.lat}%2C${LOCATION.lon}&language=en-US&units=e&format=json`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const data = await response.json();
+
+                // Extract 36 hours
+                weatherData = {
+                    time: data.validTimeLocal.slice(0, 36),
+                    temperature: data.temperature.slice(0, 36),
+                    feelsLike: data.temperatureFeelsLike.slice(0, 36),
+                    precipChance: data.precipChance.slice(0, 36),
+                    windSpeed: data.windSpeed.slice(0, 36),
+                    humidity: data.relativeHumidity.slice(0, 36),
+                    windGust: data.windGust.slice(0, 36),
+                    qpf: data.qpf.slice(0, 36),
+                    cloudCover: data.cloudCover.slice(0, 36),
+                    iconCode: data.iconCode.slice(0, 36),
+                    dayOrNight: data.dayOrNight.slice(0, 36)
+                };
+
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                document.getElementById('errorContainer').innerHTML = '';
+
+                updateStats();
+                renderWeatherIcons();
+                renderChart();
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+                document.getElementById('errorContainer').innerHTML =
+                    `<div class="error">Failed to load weather data: ${error.message}</div>`;
+            }
+        }
+
+        // Update stats
+        function updateStats() {
+            if (!weatherData) return;
+
+            const slice = weatherData.temperature.slice(0, currentHours);
+            const current = weatherData.temperature[0];
+            const high = Math.max(...slice);
+            const low = Math.min(...slice);
+            const avgPrecip = Math.round(
+                weatherData.precipChance.slice(0, currentHours).reduce((a,b) => a+b, 0) / currentHours
+            );
+
+            // Calculate total precipitation
+            const totalPrecip = weatherData.qpf.slice(0, currentHours).reduce((a,b) => a+b, 0);
+            const precipPercent = Math.min(100, (totalPrecip / 2.5) * 100); // 2.5" = 100%
+
+            // Color scale for precip bar: blue gradient based on amount
+            let barColor = '#1e40af'; // dark blue (light amount)
+            if (precipPercent > 80) barColor = '#1e3a8a'; // very dark blue (heavy)
+            else if (precipPercent > 50) barColor = '#2563eb'; // medium blue
+            else if (precipPercent > 20) barColor = '#3b82f6'; // light-medium blue
+            else if (precipPercent > 0) barColor = '#60a5fa'; // light blue
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat">
+                    <div class="stat-value">${current}°F</div>
+                    <div class="stat-label">Current</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${high}°F</div>
+                    <div class="stat-label">High</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${low}°F</div>
+                    <div class="stat-label">Low</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${avgPrecip}%</div>
+                    <div class="stat-label">Avg Precip</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${totalPrecip.toFixed(2)}"</div>
+                    <div class="stat-secondary">${precipPercent.toFixed(0)}% of 2.5"</div>
+                    <div class="precip-bar">
+                        <div class="precip-bar-fill" style="width: ${precipPercent}%; background: ${barColor}"></div>
+                    </div>
+                    <div class="stat-label">Total Precip</div>
+                </div>
+            `;
+        }
+
+        // Render weather icons
+        function renderWeatherIcons() {
+            if (!weatherData) return;
+
+            const container = document.getElementById('weatherIcons');
+            const hours = weatherData.time.slice(0, currentHours);
+
+            container.innerHTML = hours.map((timestamp, i) => {
+                const date = new Date(timestamp);
+                const timeLabel = date.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    hour12: true
+                });
+                const isNight = weatherData.dayOrNight[i] === 'N';
+                const icon = getWeatherEmoji(weatherData.iconCode[i], isNight);
+
+                return `
+                    <div class="weather-icon">
+                        <div class="weather-icon-emoji">${icon}</div>
+                        <div class="weather-icon-time">${timeLabel}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render series toggles
+        function renderToggles() {
+            const container = document.getElementById('seriesToggles');
+            container.innerHTML = Object.entries(SERIES_CONFIG).map(([key, config]) => `
+                <div class="toggle ${config.enabled ? 'active' : ''}"
+                     data-series="${key}"
+                     style="color: ${config.color}">
+                    <div class="toggle-indicator" style="background: ${config.color}"></div>
+                    ${config.label}
+                </div>
+            `).join('');
+        }
+
+        // Render chart
+        function renderChart() {
+            if (!weatherData) return;
+
+            const ctx = document.getElementById('weatherChart').getContext('2d');
+
+            // Slice data based on current hours
+            const labels = weatherData.time.slice(0, currentHours).map(t => {
+                const date = new Date(t);
+                return date.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    hour12: true
+                });
+            });
+
+            // Build datasets for enabled series
+            const datasets = Object.entries(SERIES_CONFIG)
+                .filter(([_, config]) => config.enabled)
+                .map(([key, config]) => {
+                    const base = {
+                        label: config.label,
+                        data: weatherData[key].slice(0, currentHours),
+                        borderColor: config.color,
+                        backgroundColor: config.color + (config.type === 'bar' ? '80' : (config.fill ? '30' : '20')),
+                        yAxisID: config.yAxisID,
+                        type: config.type
+                    };
+
+                    if (config.type === 'line') {
+                        return {
+                            ...base,
+                            borderWidth: config.fill ? 1 : 2,
+                            borderDash: config.borderDash || [],
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            fill: config.fill || false
+                        };
+                    } else {
+                        return {
+                            ...base,
+                            borderWidth: 0,
+                            barPercentage: 0.8,
+                            categoryPercentage: 0.9
+                        };
+                    }
+                });
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'bar', // Use bar type to support mixed line/bar charts
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#e0e0e0',
+                                padding: 12,
+                                usePointStyle: true,
+                                pointStyle: 'line'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            padding: 12,
+                            titleColor: '#fff',
+                            bodyColor: '#e0e0e0',
+                            borderColor: '#444',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: '#2d3748',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#888',
+                                maxRotation: 45,
+                                minRotation: 45,
+                                autoSkip: true,
+                                maxTicksLimit: currentHours <= 12 ? 12 : 18
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            grid: {
+                                color: '#2d3748',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#888',
+                                callback: function(value) {
+                                    return value + '°';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Temperature (°F)',
+                                color: '#888'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: 0,
+                            max: 100,
+                            grid: {
+                                drawOnChartArea: false,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#888',
+                                stepSize: 25,
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Percent (%)',
+                                color: '#888'
+                            }
+                        },
+                        y2: {
+                            type: 'linear',
+                            display: false, // Hidden but used for QPF scaling
+                            position: 'right',
+                            min: 0,
+                            max: 0.5, // Max 0.5 inches per hour is heavy rain
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event listeners
+        document.querySelectorAll('.controls .btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (e.target.id === 'refreshBtn') {
+                    fetchWeather();
+                    return;
+                }
+
+                document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentHours = parseInt(e.target.dataset.hours);
+                updateStats();
+                renderWeatherIcons();
+                renderChart();
+            });
+        });
+
+        document.getElementById('seriesToggles').addEventListener('click', (e) => {
+            const toggle = e.target.closest('.toggle');
+            if (!toggle) return;
+
+            const series = toggle.dataset.series;
+            SERIES_CONFIG[series].enabled = !SERIES_CONFIG[series].enabled;
+            toggle.classList.toggle('active');
+            renderChart();
+        });
+
+        // Initialize
+        renderToggles();
+        fetchWeather();
+
+        // Auto-refresh every 30 minutes
+        setInterval(fetchWeather, 30 * 60 * 1000);
+    </script>
+</body>
+</html>
