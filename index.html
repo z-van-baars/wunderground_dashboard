@@ -102,6 +102,22 @@
             margin-top: 2px;
         }
 
+        .axis-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 8px 8px 8px;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .axis-label-left {
+            text-align: left;
+        }
+
+        .axis-label-right {
+            text-align: right;
+        }
+
         canvas {
             max-width: 100%;
         }
@@ -250,6 +266,10 @@
 
         <div class="graph-container">
             <div class="weather-icons" id="weatherIcons"></div>
+            <div class="axis-labels">
+                <div class="axis-label-left">Temperature (°F)</div>
+                <div class="axis-label-right">Percent (%)</div>
+            </div>
             <canvas id="weatherChart"></canvas>
         </div>
 
@@ -596,11 +616,6 @@
                                 callback: function(value) {
                                     return value + '°';
                                 }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Temperature (°F)',
-                                color: '#888'
                             }
                         },
                         y1: {
@@ -619,11 +634,6 @@
                                 callback: function(value) {
                                     return value + '%';
                                 }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Percent (%)',
-                                color: '#888'
                             }
                         },
                         y2: {
