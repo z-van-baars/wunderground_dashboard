@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>36 Hour Weather - Bellingham</title>
+    <title>Weather Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         * {
@@ -94,8 +94,44 @@
             border-color: #3b82f6;
         }
 
+        .date-selector {
+            display: none;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .date-selector.active {
+            display: flex;
+        }
+
+        .date-input {
+            padding: 6px 12px;
+            background: #1e2732;
+            border: 1px solid #2d3748;
+            color: #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .date-input:focus {
+            border-color: #3b82f6;
+        }
+
+        .date-label {
+            font-size: 13px;
+            color: #888;
+        }
+
         @media (max-width: 640px) {
             .location-control {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .date-selector {
                 flex-direction: column;
                 align-items: stretch;
             }
@@ -192,20 +228,30 @@
             font-size: 13px;
             border: 2px solid transparent;
             transition: all 0.2s;
+            opacity: 0.5;
         }
 
         .toggle:hover {
             background: #2d3748;
+            opacity: 0.7;
         }
 
         .toggle.active {
             border-color: currentColor;
+            background: rgba(59, 130, 246, 0.15);
+            opacity: 1;
+            font-weight: 600;
         }
 
         .toggle-indicator {
             width: 12px;
             height: 12px;
             border-radius: 3px;
+            transition: all 0.2s;
+        }
+
+        .toggle.active .toggle-indicator {
+            box-shadow: 0 0 8px currentColor;
         }
 
         .loading {
@@ -280,7 +326,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>36 Hour Weather Forecast</h1>
+            <h1 id="forecastTitle">Weather Dashboard</h1>
             <div class="meta" id="locationName">Seattle, WA</div>
         </header>
 
@@ -293,7 +339,14 @@
             <button class="btn active" data-hours="12">12 Hours</button>
             <button class="btn" data-hours="24">24 Hours</button>
             <button class="btn" data-hours="36">36 Hours</button>
+            <button class="btn" data-hours="240">10 Days</button>
+            <button class="btn" id="singleDayBtn">Single Day</button>
             <button class="btn" id="refreshBtn">Refresh</button>
+        </div>
+
+        <div class="date-selector" id="dateSelector">
+            <span class="date-label">Select date:</span>
+            <input type="date" class="date-input" id="dateInput">
         </div>
 
         <div class="series-toggles" id="seriesToggles"></div>
@@ -383,6 +436,8 @@
         let weatherData = null;
         let chart = null;
         let currentHours = 12;
+        let singleDayMode = false;
+        let selectedDate = null;
 
         // Icon code to emoji mapping (Weather.com icon codes)
         function getWeatherEmoji(iconCode, isNight) {
@@ -559,19 +614,19 @@
 
                 const data = await response.json();
 
-                // Extract 36 hours
+                // Extract 240 hours (10 days)
                 weatherData = {
-                    time: data.validTimeLocal.slice(0, 36),
-                    temperature: data.temperature.slice(0, 36),
-                    feelsLike: data.temperatureFeelsLike.slice(0, 36),
-                    precipChance: data.precipChance.slice(0, 36),
-                    windSpeed: data.windSpeed.slice(0, 36),
-                    humidity: data.relativeHumidity.slice(0, 36),
-                    windGust: data.windGust.slice(0, 36),
-                    qpf: data.qpf.slice(0, 36),
-                    cloudCover: data.cloudCover.slice(0, 36),
-                    iconCode: data.iconCode.slice(0, 36),
-                    dayOrNight: data.dayOrNight.slice(0, 36)
+                    time: data.validTimeLocal.slice(0, 240),
+                    temperature: data.temperature.slice(0, 240),
+                    feelsLike: data.temperatureFeelsLike.slice(0, 240),
+                    precipChance: data.precipChance.slice(0, 240),
+                    windSpeed: data.windSpeed.slice(0, 240),
+                    humidity: data.relativeHumidity.slice(0, 240),
+                    windGust: data.windGust.slice(0, 240),
+                    qpf: data.qpf.slice(0, 240),
+                    cloudCover: data.cloudCover.slice(0, 240),
+                    iconCode: data.iconCode.slice(0, 240),
+                    dayOrNight: data.dayOrNight.slice(0, 240)
                 };
 
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
@@ -592,16 +647,29 @@
         function updateStats() {
             if (!weatherData) return;
 
-            const slice = weatherData.temperature.slice(0, currentHours);
-            const current = weatherData.temperature[0];
+            // Use filtered data for single-day mode
+            let dataToUse = weatherData;
+            let hoursToShow = currentHours;
+
+            if (singleDayMode && selectedDate) {
+                dataToUse = getFilteredDataForDate(selectedDate);
+                if (!dataToUse) {
+                    document.getElementById('stats').innerHTML = '<div class="stat"><div class="stat-value">-</div><div class="stat-label">No data for selected date</div></div>';
+                    return;
+                }
+                hoursToShow = dataToUse.time.length;
+            }
+
+            const slice = dataToUse.temperature.slice(0, hoursToShow);
+            const current = dataToUse.temperature[0];
             const high = Math.max(...slice);
             const low = Math.min(...slice);
             const avgPrecip = Math.round(
-                weatherData.precipChance.slice(0, currentHours).reduce((a,b) => a+b, 0) / currentHours
+                dataToUse.precipChance.slice(0, hoursToShow).reduce((a,b) => a+b, 0) / hoursToShow
             );
 
             // Calculate total precipitation
-            const totalPrecip = weatherData.qpf.slice(0, currentHours).reduce((a,b) => a+b, 0);
+            const totalPrecip = dataToUse.qpf.slice(0, hoursToShow).reduce((a,b) => a+b, 0);
             const precipPercent = Math.min(100, (totalPrecip / 2.5) * 100); // 2.5" = 100%
 
             // Color scale for precip bar: blue gradient based on amount
@@ -644,16 +712,35 @@
             if (!weatherData) return;
 
             const container = document.getElementById('weatherIcons');
-            const hours = weatherData.time.slice(0, currentHours);
 
-            container.innerHTML = hours.map((timestamp, i) => {
+            // Use filtered data for single-day mode
+            let dataToUse = weatherData;
+            let hoursToShow = currentHours;
+
+            if (singleDayMode && selectedDate) {
+                dataToUse = getFilteredDataForDate(selectedDate);
+                if (!dataToUse) {
+                    container.innerHTML = '';
+                    return;
+                }
+                hoursToShow = dataToUse.time.length;
+            }
+
+            // For longer time ranges, show fewer icons
+            const iconInterval = currentHours > 36 && !singleDayMode ? 12 : 1; // Show every 12 hours for 10-day view
+            const maxIcons = currentHours > 36 && !singleDayMode ? 20 : hoursToShow; // Limit total icons displayed
+
+            const hours = dataToUse.time.slice(0, hoursToShow);
+            const filteredHours = hours.filter((_, i) => i % iconInterval === 0).slice(0, maxIcons);
+
+            container.innerHTML = filteredHours.map((timestamp, idx) => {
+                const i = idx * iconInterval; // Original index in full data
                 const date = new Date(timestamp);
-                const timeLabel = date.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    hour12: true
-                });
-                const isNight = weatherData.dayOrNight[i] === 'N';
-                const icon = getWeatherEmoji(weatherData.iconCode[i], isNight);
+                const timeLabel = currentHours > 36 && !singleDayMode
+                    ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                const isNight = dataToUse.dayOrNight[i] === 'N';
+                const icon = getWeatherEmoji(dataToUse.iconCode[i], isNight);
 
                 return `
                     <div class="weather-icon">
@@ -683,8 +770,20 @@
 
             const ctx = document.getElementById('weatherChart').getContext('2d');
 
+            // Use filtered data for single-day mode
+            let dataToUse = weatherData;
+            let hoursToShow = currentHours;
+
+            if (singleDayMode && selectedDate) {
+                dataToUse = getFilteredDataForDate(selectedDate);
+                if (!dataToUse) {
+                    return; // No data for selected date
+                }
+                hoursToShow = dataToUse.time.length;
+            }
+
             // Slice data based on current hours
-            const labels = weatherData.time.slice(0, currentHours).map(t => {
+            const labels = dataToUse.time.slice(0, hoursToShow).map(t => {
                 const date = new Date(t);
                 return date.toLocaleTimeString('en-US', {
                     hour: 'numeric',
@@ -698,7 +797,7 @@
                 .map(([key, config]) => {
                     const base = {
                         label: config.label,
-                        data: weatherData[key].slice(0, currentHours),
+                        data: dataToUse[key].slice(0, hoursToShow),
                         borderColor: config.color,
                         backgroundColor: config.color + (config.type === 'bar' ? '80' : (config.fill ? '30' : '20')),
                         yAxisID: config.yAxisID,
@@ -795,7 +894,7 @@
                                 maxRotation: 45,
                                 minRotation: 45,
                                 autoSkip: true,
-                                maxTicksLimit: currentHours <= 12 ? 12 : 18
+                                maxTicksLimit: currentHours <= 12 ? 12 : currentHours <= 36 ? 18 : 20
                             }
                         },
                         y: {
@@ -846,6 +945,53 @@
             });
         }
 
+        // Get filtered data for single-day view
+        function getFilteredDataForDate(date) {
+            if (!weatherData) return null;
+
+            const targetDate = new Date(date);
+            targetDate.setHours(0, 0, 0, 0);
+
+            // Find the index where the selected date starts
+            let startIndex = -1;
+            for (let i = 0; i < weatherData.time.length; i++) {
+                const dataDate = new Date(weatherData.time[i]);
+                dataDate.setHours(0, 0, 0, 0);
+                if (dataDate.getTime() === targetDate.getTime()) {
+                    startIndex = i;
+                    break;
+                }
+            }
+
+            if (startIndex === -1) {
+                return null; // Date not found in available data
+            }
+
+            // Get 24 hours starting from startIndex
+            const endIndex = Math.min(startIndex + 24, weatherData.time.length);
+
+            return {
+                time: weatherData.time.slice(startIndex, endIndex),
+                temperature: weatherData.temperature.slice(startIndex, endIndex),
+                feelsLike: weatherData.feelsLike.slice(startIndex, endIndex),
+                precipChance: weatherData.precipChance.slice(startIndex, endIndex),
+                windSpeed: weatherData.windSpeed.slice(startIndex, endIndex),
+                humidity: weatherData.humidity.slice(startIndex, endIndex),
+                windGust: weatherData.windGust.slice(startIndex, endIndex),
+                qpf: weatherData.qpf.slice(startIndex, endIndex),
+                cloudCover: weatherData.cloudCover.slice(startIndex, endIndex),
+                iconCode: weatherData.iconCode.slice(startIndex, endIndex),
+                dayOrNight: weatherData.dayOrNight.slice(startIndex, endIndex)
+            };
+        }
+
+        // Update forecast title based on time range
+        function updateForecastTitle() {
+            const titleEl = document.getElementById('forecastTitle');
+            // Keep title consistent as "Weather Dashboard"
+            titleEl.textContent = 'Weather Dashboard';
+        }
+
         // Event listeners
         document.querySelectorAll('.controls .btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -857,6 +1003,7 @@
                 document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
                 currentHours = parseInt(e.target.dataset.hours);
+                updateForecastTitle();
                 updateStats();
                 renderWeatherIcons();
                 renderChart();
@@ -881,9 +1028,62 @@
             }
         });
 
+        // Single day mode event listeners
+        document.getElementById('singleDayBtn').addEventListener('click', () => {
+            singleDayMode = true;
+
+            // Set default date to today if not already set
+            if (!selectedDate) {
+                const today = new Date();
+                selectedDate = today.toISOString().split('T')[0];
+                document.getElementById('dateInput').value = selectedDate;
+            }
+
+            // Update UI
+            document.getElementById('dateSelector').classList.add('active');
+            document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('singleDayBtn').classList.add('active');
+
+            updateForecastTitle();
+            updateStats();
+            renderWeatherIcons();
+            renderChart();
+        });
+
+        document.getElementById('dateInput').addEventListener('change', (e) => {
+            selectedDate = e.target.value;
+            updateForecastTitle();
+            updateStats();
+            renderWeatherIcons();
+            renderChart();
+        });
+
+        // When switching back to time-range views, exit single-day mode
+        document.querySelectorAll('.controls .btn[data-hours]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (singleDayMode) {
+                    singleDayMode = false;
+                    document.getElementById('dateSelector').classList.remove('active');
+                }
+            });
+        });
+
+        // Initialize date input with valid range (next 10 days)
+        function initializeDateInput() {
+            const dateInput = document.getElementById('dateInput');
+            const today = new Date();
+            const tenDaysFromNow = new Date();
+            tenDaysFromNow.setDate(today.getDate() + 9);
+
+            dateInput.min = today.toISOString().split('T')[0];
+            dateInput.max = tenDaysFromNow.toISOString().split('T')[0];
+            dateInput.value = today.toISOString().split('T')[0];
+        }
+
         // Initialize
         renderToggles();
         loadLocation(); // Load from URL or localStorage
+        initializeDateInput();
         fetchWeather();
 
         // Auto-refresh every 30 minutes
