@@ -1,6 +1,6 @@
 # 36-Hour Weather Dashboard
 
-A mobile-optimized, interactive weather forecast dashboard for Bellingham, WA. Built with vanilla JavaScript and Chart.js, deployed on GitHub Pages.
+A mobile-optimized, interactive weather forecast dashboard with location switching. Built with vanilla JavaScript and Chart.js, deployed on GitHub Pages.
 
 **🌐 Live Site:** https://z-van-baars.github.io/wunderground_dashboard/
 
@@ -8,6 +8,7 @@ A mobile-optimized, interactive weather forecast dashboard for Bellingham, WA. B
 
 ## Features
 
+- **Location switching**: Enter any city to see its forecast, with shareable URLs and localStorage persistence
 - **Interactive time ranges**: 12, 24, or 36 hour views
 - **Multiple data series**: Temperature, feels-like, precipitation (chance & amount), cloud cover, wind, humidity
 - **Enhanced visualizations**:
@@ -25,9 +26,23 @@ A mobile-optimized, interactive weather forecast dashboard for Bellingham, WA. B
 ### View Live
 Just visit: **https://z-van-baars.github.io/wunderground_dashboard/**
 
+Default location is Seattle, WA - use the location input to change to any city.
+
+### Change Location
+1. Enter a city name (e.g., "Portland, OR" or "Denver, CO")
+2. Click "Change Location" or press Enter
+3. Your choice is saved and the URL updates for sharing
+
+### Share a Specific Location
+After changing location, copy the URL - it includes parameters like:
+```
+https://z-van-baars.github.io/wunderground_dashboard/?lat=45.523&lon=-122.676&name=Portland
+```
+Anyone opening this link will see Portland's weather.
+
 ### Embed in Notion
 1. In Notion, type `/embed`
-2. Paste: `https://z-van-baars.github.io/wunderground_dashboard/`
+2. Paste: `https://z-van-baars.github.io/wunderground_dashboard/` (or URL with specific location)
 3. Resize to fill page width
 
 ### Add to Mobile Home Screen
@@ -94,11 +109,15 @@ git push
 
 ## Customization
 
-### Change Location
+### Change Default Location
+The default location (shown when no URL params or localStorage) can be changed in code:
 ```javascript
-// Line 280 in index.html
-const LOCATION = { lat: 48.796, lon: -122.502 }; // Your lat/lon here
+// Line 323 in index.html
+let LOCATION = { lat: 47.606, lon: -122.332 }; // Seattle - change to your lat/lon
+let currentLocationName = 'Seattle, WA'; // Update display name too
 ```
+
+Or just use the UI - your browser will remember your choice via localStorage.
 
 ### Add/Remove Data Series
 ```javascript
@@ -122,8 +141,8 @@ See [Implementation Guide](implementation_guide.md) for more recipes.
 
 This is a personal project, but feel free to fork and customize for your own use!
 
-**Ideas for enhancements:**
-- Location selector (geocoding)
+**Ideas for future enhancements:**
+- Multiple saved locations (favorites list)
 - 7-day daily forecast summary
 - Dark/light mode toggle
 - Severe weather alerts

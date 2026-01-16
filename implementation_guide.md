@@ -32,8 +32,14 @@ index.html
          │
          v
 ┌─────────────────┐
+│  loadLocation() │──────> Check URL params → localStorage → default
+│  on page load   │
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
 │  fetchWeather() │──────> Weather.com API
-│  on page load   │        (hourly/15day)
+│  with LOCATION  │        (hourly/15day)
 └────────┬────────┘
          │
          v
@@ -47,23 +53,39 @@ index.html
          └──> renderChart()        -> Main graph
 ```
 
+**Location Change Flow:**
+```
+User enters city → geocodeLocation() → Nominatim API → lat/lon
+                                                          │
+                                                          v
+                                        Update LOCATION + save to localStorage
+                                                          │
+                                                          v
+                                        Update URL params → fetchWeather()
+```
+
 **Auto-refresh:** `setInterval(fetchWeather, 30min)` at bottom of script
 
 ---
 
 ## Key Components
 
-### 1. Configuration (Lines 278-280)
+### 1. Configuration (Lines 320-324)
 ```javascript
 const API_URL = 'https://api.weather.com/v3/wx/forecast/hourly/15day';
 const API_KEY = 'e1f10a1e78da46f5b10a1e78da96f525';
-const LOCATION = { lat: 48.796, lon: -122.502 }; // Bellingham, WA
+let LOCATION = { lat: 47.606, lon: -122.332 }; // Seattle, WA (default)
+let currentLocationName = 'Seattle, WA';
 ```
 
-**To change location:**
-1. Find lat/lon (Google Maps right-click → coordinates)
-2. Update `LOCATION` object
-3. Refresh page
+**Note:** `LOCATION` is now `let` (not `const`) to allow runtime changes via UI.
+
+**To change default location:**
+1. Update `LOCATION` object with new lat/lon
+2. Update `currentLocationName` with display name
+3. Update initial HTML (line 284): `<div class="meta" id="locationName">Your City</div>`
+
+**Users can also change location via UI** - see Location System below.
 
 ### 2. Series Configuration (Lines 282-341)
 ```javascript
@@ -104,7 +126,65 @@ function getWeatherEmoji(iconCode, isNight) {
 - Add code to appropriate category
 - Replace emoji if needed
 
-### 4. Stats Cards (Lines 452-492)
+### 4. Location System (Lines 421-550)
+
+**Geocoding (Lines 421-446):**
+```javascript
+async function geocodeLocation(locationName) {
+    // Uses Nominatim (OpenStreetMap) free geocoding API
+    // Input: "Seattle, WA" or "Portland, OR"
+    // Output: { lat, lon, displayName }
+}
+```
+
+**Loading Location (Lines 448-475):**
+```javascript
+function loadLocation() {
+    // Priority order:
+    // 1. URL params (?lat=X&lon=Y&name=Z) - highest priority
+    // 2. localStorage (saved from previous session)
+    // 3. Default (Seattle, WA)
+}
+```
+
+**Saving & URL Updates (Lines 477-496):**
+```javascript
+function saveLocation() {
+    // Saves to localStorage: { lat, lon, name }
+}
+
+function updateURL() {
+    // Updates URL with location params for sharing
+    // Uses pushState (doesn't reload page)
+}
+```
+
+**Change Location Handler (Lines 504-550):**
+```javascript
+async function changeLocation() {
+    // 1. Get user input from text field
+    // 2. Geocode to lat/lon
+    // 3. Update LOCATION variable
+    // 4. Save to localStorage
+    // 5. Update URL params
+    // 6. Fetch new weather data
+}
+```
+
+**How it works:**
+1. User types city name → clicks button (or presses Enter)
+2. `geocodeLocation()` queries Nominatim API
+3. Result updates `LOCATION` and `currentLocationName`
+4. `saveLocation()` stores in localStorage
+5. `updateURL()` adds params to URL for sharing
+6. `fetchWeather()` loads new weather data
+
+**Persistence:**
+- **localStorage**: Survives browser refresh, private to user's browser
+- **URL params**: Shareable links, overrides localStorage
+- **Default**: Fallback if no saved data or URL params
+
+### 5. Stats Cards (Lines 600+)
 ```javascript
 function updateStats() {
     // Calculates: current, high, low, avg precip, total precip
@@ -227,33 +307,40 @@ setInterval(fetchWeather, 30 * 60 * 1000);  // 30 minutes
 //        or: 60 * 60 * 1000 for 1hr
 ```
 
-### Add Location Selector
+### Modify Location Selector
 
-This requires more work (not currently implemented):
+**Already implemented!** Location switching with geocoding is built-in (see Location System section above).
 
-1. **Add input field:**
-```html
-<input type="text" id="locationInput" placeholder="City, State">
-<button id="locationBtn">Update</button>
-```
+**To customize the geocoding provider:**
 
-2. **Add geocoding:**
+Currently uses Nominatim (OpenStreetMap) - free, no API key required.
+
+To switch to Google Geocoding API:
 ```javascript
-async function geocodeLocation(cityState) {
-    // Use Google Geocoding API or similar
-    // Return { lat, lon }
+// Replace geocodeLocation() function (Line 421)
+async function geocodeLocation(locationName) {
+    const apiKey = 'YOUR_GOOGLE_API_KEY';
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationName)}&key=${apiKey}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK') throw new Error('Location not found');
+
+    const result = data.results[0];
+    return {
+        lat: result.geometry.location.lat,
+        lon: result.geometry.location.lng,
+        displayName: result.formatted_address
+    };
 }
 ```
 
-3. **Update on button click:**
+**To disable location persistence:**
 ```javascript
-document.getElementById('locationBtn').addEventListener('click', async () => {
-    const input = document.getElementById('locationInput').value;
-    const coords = await geocodeLocation(input);
-    LOCATION.lat = coords.lat;
-    LOCATION.lon = coords.lon;
-    fetchWeather();
-});
+// Comment out in changeLocation() (Line 530):
+// saveLocation();  // Don't save to localStorage
+// updateURL();     // Don't update URL params
 ```
 
 ---

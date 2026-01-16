@@ -8,9 +8,10 @@
 
 ## What We Built
 
-An interactive, mobile-first weather dashboard that displays 36-hour forecasts with enhanced visualizations for Bellingham, WA. Pulls data from Weather.com API and renders it in a clean, readable format optimized for quick weather checks.
+An interactive, mobile-first weather dashboard that displays 36-hour forecasts with enhanced visualizations for any location. Pulls data from Weather.com API and renders it in a clean, readable format optimized for quick weather checks.
 
 ### Key Features Delivered
+- **Location switching**: Change to any city via text input, with geocoding, shareable URLs, and localStorage persistence
 - **Interactive time ranges**: 12/24/36 hour views
 - **Multiple data series**: Temperature, feels-like, precipitation (chance & amount), cloud cover, wind, humidity
 - **Visual enhancements**:
@@ -147,14 +148,20 @@ An interactive, mobile-first weather dashboard that displays 36-hour forecasts w
 
 ## Future Enhancements
 
+### Completed
+- [x] Location selector (geocoding API + URL params) - **DONE**
+- [x] Shareable URLs with location params - **DONE**
+- [x] localStorage persistence for location - **DONE**
+
 ### Short-Term (Easy Wins)
-- [ ] Location selector (geocoding API + URL params)
 - [ ] Dark/light mode toggle
 - [ ] Save preferred time range in localStorage
 - [ ] "Add to Home Screen" prompt for mobile users
-- [ ] Share button (generates URL with location params)
+- [ ] Copy URL button (easier sharing)
+- [ ] Location search history/autocomplete
 
 ### Medium-Term (More Involved)
+- [ ] Multiple saved locations (favorites list)
 - [ ] 7-day daily forecast summary below 36hr graph
 - [ ] Severe weather alerts (if active)
 - [ ] Historical comparison ("warmer/cooler than average")
@@ -162,7 +169,6 @@ An interactive, mobile-first weather dashboard that displays 36-hour forecasts w
 - [ ] Custom precipitation scale (user sets "heavy" threshold)
 
 ### Long-Term (Major Features)
-- [ ] Multiple saved locations
 - [ ] Notion database push (hourly data sync)
 - [ ] Push notifications for precipitation/temp thresholds
 - [ ] PWA with offline caching
