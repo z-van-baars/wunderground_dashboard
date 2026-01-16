@@ -68,6 +68,39 @@
             color: white;
         }
 
+        .location-control {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .location-input {
+            flex: 1;
+            padding: 6px 12px;
+            background: #1e2732;
+            border: 1px solid #2d3748;
+            color: #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .location-input::placeholder {
+            color: #666;
+        }
+
+        .location-input:focus {
+            border-color: #3b82f6;
+        }
+
+        @media (max-width: 640px) {
+            .location-control {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
         .graph-container {
             background: #1a1f2e;
             border-radius: 8px;
@@ -248,8 +281,13 @@
     <div class="container">
         <header>
             <h1>36 Hour Weather Forecast</h1>
-            <div class="meta">Bellingham, WA</div>
+            <div class="meta" id="locationName">Bellingham, WA</div>
         </header>
+
+        <div class="location-control">
+            <input type="text" class="location-input" id="locationInput" placeholder="Enter city name (e.g., Seattle, WA or Portland, OR)">
+            <button class="btn" id="locationBtn">Change Location</button>
+        </div>
 
         <div class="controls">
             <button class="btn active" data-hours="12">12 Hours</button>
@@ -282,7 +320,8 @@
         // Configuration
         const API_URL = 'https://api.weather.com/v3/wx/forecast/hourly/15day';
         const API_KEY = 'e1f10a1e78da46f5b10a1e78da96f525';
-        const LOCATION = { lat: 48.796, lon: -122.502 };
+        let LOCATION = { lat: 48.796, lon: -122.502 };
+        let currentLocationName = 'Bellingham, WA';
 
         // Series configuration
         const SERIES_CONFIG = {
@@ -377,6 +416,137 @@
 
             // Default
             return isNight ? '🌙' : '☁️';
+        }
+
+        // Geocode location name to lat/lon using Nominatim (OpenStreetMap)
+        async function geocodeLocation(locationName) {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(locationName)}&format=json&limit=1`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'WeatherDashboard/1.0'
+                    }
+                });
+
+                if (!response.ok) throw new Error('Geocoding failed');
+
+                const data = await response.json();
+                if (data.length === 0) throw new Error('Location not found');
+
+                return {
+                    lat: parseFloat(data[0].lat),
+                    lon: parseFloat(data[0].lon),
+                    displayName: data[0].display_name
+                };
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                throw error;
+            }
+        }
+
+        // Load location from URL params or localStorage
+        function loadLocation() {
+            // Check URL params first (highest priority)
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('lat') && params.has('lon')) {
+                LOCATION.lat = parseFloat(params.get('lat'));
+                LOCATION.lon = parseFloat(params.get('lon'));
+                if (params.has('name')) {
+                    currentLocationName = decodeURIComponent(params.get('name'));
+                }
+                updateLocationDisplay();
+                return;
+            }
+
+            // Fall back to localStorage
+            const saved = localStorage.getItem('weatherLocation');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    LOCATION.lat = data.lat;
+                    LOCATION.lon = data.lon;
+                    currentLocationName = data.name || 'Unknown Location';
+                    updateLocationDisplay();
+                } catch (e) {
+                    console.error('Error loading saved location:', e);
+                }
+            }
+        }
+
+        // Save location to localStorage
+        function saveLocation() {
+            const data = {
+                lat: LOCATION.lat,
+                lon: LOCATION.lon,
+                name: currentLocationName
+            };
+            localStorage.setItem('weatherLocation', JSON.stringify(data));
+        }
+
+        // Update URL with current location (for sharing)
+        function updateURL() {
+            const params = new URLSearchParams();
+            params.set('lat', LOCATION.lat.toFixed(3));
+            params.set('lon', LOCATION.lon.toFixed(3));
+            params.set('name', encodeURIComponent(currentLocationName));
+
+            const newURL = `${window.location.pathname}?${params.toString()}`;
+            window.history.pushState({}, '', newURL);
+        }
+
+        // Update location display in UI
+        function updateLocationDisplay() {
+            document.getElementById('locationName').textContent = currentLocationName;
+            document.title = `Weather: ${currentLocationName}`;
+        }
+
+        // Change location handler
+        async function changeLocation() {
+            const input = document.getElementById('locationInput');
+            const locationName = input.value.trim();
+
+            if (!locationName) {
+                alert('Please enter a location');
+                return;
+            }
+
+            try {
+                // Show loading state
+                const btn = document.getElementById('locationBtn');
+                const originalText = btn.textContent;
+                btn.textContent = 'Loading...';
+                btn.disabled = true;
+
+                // Geocode the location
+                const result = await geocodeLocation(locationName);
+
+                // Update location
+                LOCATION.lat = result.lat;
+                LOCATION.lon = result.lon;
+                currentLocationName = result.displayName;
+
+                // Save and update UI
+                saveLocation();
+                updateURL();
+                updateLocationDisplay();
+
+                // Clear input
+                input.value = '';
+
+                // Fetch new weather data
+                await fetchWeather();
+
+                // Restore button
+                btn.textContent = originalText;
+                btn.disabled = false;
+
+            } catch (error) {
+                alert(`Error: ${error.message}. Please try a different location format (e.g., "Seattle, WA" or "Portland, OR")`);
+                const btn = document.getElementById('locationBtn');
+                btn.textContent = 'Change Location';
+                btn.disabled = false;
+            }
         }
 
         // Fetch weather data
@@ -703,8 +873,17 @@
             renderChart();
         });
 
+        // Location change event listeners
+        document.getElementById('locationBtn').addEventListener('click', changeLocation);
+        document.getElementById('locationInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                changeLocation();
+            }
+        });
+
         // Initialize
         renderToggles();
+        loadLocation(); // Load from URL or localStorage
         fetchWeather();
 
         // Auto-refresh every 30 minutes
