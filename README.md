@@ -162,8 +162,7 @@ MIT License - use freely, attribution appreciated but not required.
 ## Credits
 
 **Built by:** Zac Van Baars
-**With assistance from:** Claude (Anthropic)
-**Data source:** Weather.com API
+**Data source:** Wunderground.com API
 **Chart library:** Chart.js
 **Hosting:** GitHub Pages
 
